@@ -1,0 +1,196 @@
+/* LeakLock landing — tokens taken from "LeakLock (Minh) version/source/ui.css" */
+:root {
+  --green: #58cc02;         /* primary fill */
+  --green-dark: #46a302;    /* primary border / wordmark */
+  --green-hover: #61d60b;
+  --green-ink: #163d00;     /* text on green buttons */
+  --green-text: #367d00;    /* green text on white */
+  --badge-bg: #effbdc;
+  --badge-line: #d7f4ad;
+  --success-bg: #e8fbd5;
+  --success-line: #c3e8a0;
+  --dashed: #b4db92;
+  --focus: #1899d6;
+  --danger: #ba3030;
+  --text: #3c3c3c;
+  --muted: #6b6b6b;         /* a touch darker than Minh's #777 for 4.5:1 at small sizes */
+  --line: #e5e5e5;
+  --field: #f7f7f7;
+  --surface: #fff;
+  --font: ui-rounded, "SF Pro Rounded", "Arial Rounded MT Bold", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font: 16px/1.55 var(--font);
+  color: var(--text);
+  background: var(--surface);
+}
+a { color: var(--green-text); }
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+.wrap { width: 100%; max-width: 960px; margin: 0 auto; padding: 0 24px; }
+
+/* Header + wordmark — copied from Minh's .brand / .brand-mark */
+.top { padding: 24px 0 8px; }
+.top .wrap { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.brand {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 25px; font-weight: 850; letter-spacing: -1px;
+  text-decoration: none; color: var(--green-dark);
+}
+.brand-mark {
+  position: relative; display: grid; place-items: center;
+  width: 28px; height: 32px; transform: rotate(-8deg);
+  background: var(--green); border-radius: 9px; border-bottom: 4px solid var(--green-dark);
+}
+.brand-mark::before {   /* shackle */
+  content: ""; position: absolute; top: 5px;
+  width: 11px; height: 11px; border: 3px solid #fff; border-radius: 7px 7px 0 0;
+}
+.brand-mark::after {    /* body */
+  content: ""; position: absolute; top: 13px;
+  width: 15px; height: 12px; border-radius: 3px; background: #fff;
+}
+
+.badge {
+  display: inline-block; white-space: nowrap;
+  font-size: 12px; font-weight: 750; color: var(--green-text);
+  background: var(--badge-bg); border: 2px solid var(--badge-line);
+  padding: 5px 10px; border-radius: 12px;
+}
+
+/* Buttons — Minh's tactile style: 2px border, 4px bottom "lip", press-down */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 10px 20px;
+  font: inherit; font-size: 16px; font-weight: 750; white-space: nowrap;
+  color: #555; background: var(--surface); text-decoration: none; cursor: pointer;
+  border: 2px solid var(--line); border-bottom-width: 4px; border-radius: 13px;
+  transition: background .15s;
+}
+.btn:hover { background: #f5f5f5; }
+.btn:active { transform: translateY(2px); border-bottom-width: 2px; }
+.btn:disabled { opacity: .45; cursor: default; transform: none; }
+.btn.primary {
+  background: var(--green); color: var(--green-ink);
+  border-color: var(--green); border-bottom-color: var(--green-dark);
+}
+.btn.primary:hover { background: var(--green-hover); }
+.btn.small { min-height: 44px; font-size: 14px; padding: 8px 15px; }
+
+/* Hero */
+.hero { text-align: center; padding: 48px 0 36px; }
+.hero .badge { margin-bottom: 18px; }
+.hero h1 {
+  font-size: clamp(34px, 6vw, 54px); line-height: 1.12;
+  letter-spacing: -1.5px; font-weight: 800;
+}
+.hero h1 .green { color: var(--green-dark); }
+.hero p { max-width: 560px; margin: 16px auto 0; font-size: 18px; color: var(--muted); }
+
+/* Cards — Minh's .rule-row: 2px line, 4px bottom, 17px radius */
+.card {
+  background: var(--surface);
+  border: 2px solid var(--line); border-bottom-width: 4px; border-radius: 17px;
+  padding: 26px;
+}
+h2 { font-size: 20px; font-weight: 800; letter-spacing: -.3px; margin-bottom: 4px; }
+.sub { color: var(--muted); font-size: 15px; margin-bottom: 18px; }
+
+/* Demo video */
+.video {
+  position: relative; aspect-ratio: 16 / 9; width: 100%; overflow: hidden;
+  background: var(--field); border: 2px solid var(--line); border-radius: 13px;
+  display: grid; place-items: center; text-align: center;
+}
+.video iframe, .video video { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.video-placeholder { color: var(--muted); font-weight: 750; padding: 20px; }
+.play {
+  width: 72px; height: 72px; margin: 0 auto 12px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--green); border-bottom: 5px solid var(--green-dark);
+}
+.play svg { width: 26px; height: 26px; fill: #fff; margin-left: 4px; }
+
+/* Signup + feedback */
+.grid { display: grid; gap: 20px; grid-template-columns: 1fr; margin-top: 20px; }
+@media (min-width: 768px) { .grid { grid-template-columns: 3fr 2fr; } }
+
+label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.form-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-start; }
+.input {
+  flex: 1 1 220px; min-width: 0; min-height: 48px;
+  font: inherit; font-size: 16px; color: var(--text);
+  background: var(--field); border: 2px solid var(--line); border-radius: 12px;
+  padding: 11px 14px; outline: none; transition: border-color .15s, background .15s;
+}
+.input::placeholder { color: #8f8f8f; }
+.input:focus { background: #fff; border-color: var(--focus); }
+.input[aria-invalid="true"] { border-color: var(--danger); }
+.helper { font-size: 13px; color: var(--muted); margin-top: 10px; }
+
+/* Status message — Minh's #feedback toast look, inline */
+.msg:empty { display: none; }
+.msg {
+  margin-top: 12px; font-size: 14px; font-weight: 700;
+  padding: 10px 14px; border-radius: 13px; border: 2px solid;
+}
+.msg.success { color: var(--green-text); background: var(--success-bg); border-color: var(--success-line); box-shadow: 0 3px 0 var(--success-line); }
+.msg.error { color: var(--danger); background: #fdf0f0; border-color: #f1c9c9; }
+
+/* Feedback card — Minh's dashed .add-card */
+.feedback-card {
+  display: flex; flex-direction: column;
+  border: 2px dashed var(--dashed); border-radius: 15px;
+}
+.feedback-card .btn { align-self: flex-start; margin-top: auto; }
+
+footer { text-align: center; font-size: 13px; color: var(--muted); padding: 40px 0 32px; }
+
+.hero-cta { margin-top: 24px; min-width: 200px; }
+#signup { scroll-margin-top: 16px; }
+footer { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; }
+.wrap {
+  padding-left: max(24px, env(safe-area-inset-left));
+  padding-right: max(24px, env(safe-area-inset-right));
+}
+footer { padding-bottom: max(32px, env(safe-area-inset-bottom)); }
+
+@media (max-width: 480px) {
+  .wrap {
+    padding-left: max(18px, env(safe-area-inset-left));
+    padding-right: max(18px, env(safe-area-inset-right));
+  }
+  .top { padding-top: 16px; }
+  .top .btn { display: none; }          /* hero button covers this on phones */
+  .brand { font-size: 23px; }
+  .hero { padding: 28px 0 28px; }
+  .hero p { font-size: 17px; }
+  .hero-cta { width: 100%; }
+  .card { padding: 20px; }
+  .form-row .btn,
+  .feedback-card .btn { width: 100%; align-self: stretch; }
+  footer { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  * { transition: none !important; }
+}
+
+/* "Join X others" counter */
+.count {
+  display: flex; align-items: center; gap: 10px;
+  margin: -6px 0 16px; font-size: 14px; font-weight: 750; color: var(--green-text);
+}
+.count[hidden] { display: none; }
+.count-dots { display: inline-flex; }
+.count-dots i {
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid #fff; background: var(--badge-line);
+}
+.count-dots i + i { margin-left: -8px; }
+.count-dots i:nth-child(2) { background: var(--green); }
+.count-dots i:nth-child(3) { background: var(--green-dark); }

@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <title>Leak Lock — Scroll in peace</title>
+  <meta name="description" content="Leak Lock is a content filter that hides spoilers, distracting content, and anything else you add to your filters, before you see it." />
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect x=%222%22 y=%220%22 width=%2228%22 height=%2232%22 rx=%229%22 fill=%22%2358cc02%22/%3E%3Cpath d=%22M11 15v-3a5 5 0 0 1 10 0v3%22 fill=%22none%22 stroke=%22%23fff%22 stroke-width=%223%22/%3E%3Crect x=%228.5%22 y=%2214%22 width=%2215%22 height=%2211%22 rx=%223%22 fill=%22%23fff%22/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="#">
+        <span class="brand-mark" aria-hidden="true"></span> leak lock
+      </a>
+      <a class="btn small" href="#signup">Join the waitlist</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div class="hero">
+      <span class="badge">Coming soon</span>
+      <h1>Scroll in <span class="green">peace.</span></h1>
+      <p>Leak Lock is a content filter that hides spoilers, distracting content, and anything else you add to your filters, before you ever see it.</p>
+      <a class="btn primary hero-cta" href="#signup">Join the waitlist</a>
+    </div>
+
+    <!-- Demo video -->
+    <section class="card" aria-labelledby="demo-title">
+      <h2 id="demo-title">Leak Lock Demo</h2>
+      <p class="sub">A quick walkthrough of our Leak Lock MVP. See it in action filtering a live feed.</p>
+      <div class="video">
+        <!-- Replace the placeholder below with your video, e.g.:
+             <iframe src="https://www.youtube.com/embed/VIDEO_ID" title="Leak Lock demo"
+                     allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+             or <video src="assets/demo.mp4" controls preload="metadata"></video> -->
+        <div class="video-placeholder">
+          <div class="play" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>
+          </div>
+          <strong>Demo video coming soon</strong>
+        </div>
+      </div>
+    </section>
+
+    <div class="grid">
+      <!-- Waitlist signup -->
+      <section class="card" id="signup" aria-labelledby="signup-title">
+        <h2 id="signup-title">Join the waitlist</h2>
+        <p class="sub">Leave your email and we'll let you know when Leak Lock launches.</p>
+        <p class="count" id="waitlistCount" hidden>
+          <span class="count-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span id="waitlistCountText"></span>
+        </p>
+        <form id="signupForm" novalidate>
+          <label for="email">Email address</label>
+          <div class="form-row">
+            <input class="input" id="email" name="email" type="email"
+                   autocomplete="email" placeholder="you@example.com" required maxlength="254"
+                   aria-describedby="emailHelp emailMsg" />
+            <button class="btn primary" type="submit" id="signupBtn">Join waitlist</button>
+          </div>
+          <!-- Honeypot: hidden from people, bots fill it in and get ignored -->
+          <input type="text" name="website" id="website" tabindex="-1" autocomplete="off" aria-hidden="true"
+                 style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" />
+          <p class="helper" id="emailHelp">No spam. Just one email when we launch.</p>
+          <p class="msg" id="emailMsg" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+
+      <!-- Google Form feedback -->
+      <section class="card feedback-card" aria-labelledby="feedback-title">
+        <h2 id="feedback-title">Tell us more</h2>
+        <p class="sub">What would you want Leak Lock to block? Which sites matter most to you? Your answers shape what we build first.</p>
+        <!-- TODO: replace href with the Google Form link once it's created -->
+        <a class="btn" id="feedbackLink" href="#" target="_blank" rel="noopener">
+          Share your feedback
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>
+          <span class="sr-only">(opens in a new tab)</span>
+        </a>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <span>&copy; 2026 MAVAL &amp; Co. All rights reserved.</span>
+    <span>Leak Lock is a product of MAVAL &amp; Co.</span>
+  </footer>
+
+  <script>
+    // Google Apps Script Web app URL (see google-apps-script.js for setup).
+    // While empty, signups are only kept in this browser's localStorage.
+    const SIGNUP_ENDPOINT = "https://script.google.com/macros/s/AKfycbzF8ppjtUAXh2WbtF9kN5bP6-tm5ioZexjQLRxfs61lfp5IVyJ_OlA-2P-6rJNphuw7/exec";
+
+    const COUNT_MIN_TO_SHOW = 1;     // hide "Join X others" until the list has at least this many (raise to ~10 before launch)
+    const COOLDOWN_SECONDS = 30;     // wait between submissions from this browser
+    const MAX_PER_HOUR = 3;          // submissions allowed per browser per hour
+    const BTN_LABEL = "Join waitlist";
+
+    const form = document.getElementById("signupForm");
+    const email = document.getElementById("email");
+    const btn = document.getElementById("signupBtn");
+    const msg = document.getElementById("emailMsg");
+    const countEl = document.getElementById("waitlistCount");
+    const countText = document.getElementById("waitlistCountText");
+    let waitlistCount = null;
+    let cooldownTimer = null;
+
+    function show(text, type) { msg.textContent = text; msg.className = "msg " + (type || ""); }
+    const BAD_EMAIL = "That doesn't look like an email. Check for typos, like a missing @.";
+
+    // ---- "Join X others" counter ----
+    function renderCount() {
+      if (waitlistCount === null || waitlistCount < COUNT_MIN_TO_SHOW) { countEl.hidden = true; return; }
+      countText.textContent = "Join " + waitlistCount.toLocaleString() + (waitlistCount === 1 ? " other person" : " others") + " already on the waitlist";
+      countEl.hidden = false;
+    }
+    async function loadCount() {
+      if (!SIGNUP_ENDPOINT) return;
+      try {
+        const res = await fetch(SIGNUP_ENDPOINT + "?action=count", { cache: "no-store" });
+        const data = await res.json();
+        if (typeof data.count === "number") { waitlistCount = data.count; renderCount(); }
+      } catch { /* counter is optional; stay hidden */ }
+    }
+    loadCount();
+
+    // "Join the waitlist" links: scroll to the form and put the cursor in the email box
+    document.querySelectorAll('a[href="#signup"]').forEach(a => a.addEventListener("click", () => {
+      setTimeout(() => email.focus({ preventScroll: true }), 350);
+    }));
+
+    // ---- Rate limiting (per browser) ----
+    function recentSubmits() {
+      const hourAgo = Date.now() - 3600e3;
+      return JSON.parse(localStorage.getItem("leaklockSubmits") || "[]").filter(t => t > hourAgo);
+    }
+    function recordSubmit() {
+      const list = recentSubmits(); list.push(Date.now());
+      localStorage.setItem("leaklockSubmits", JSON.stringify(list));
+    }
+    function secondsUntilAllowed() {
+      const list = recentSubmits();
+      if (!list.length) return 0;
+      const sinceLast = (Date.now() - list[list.length - 1]) / 1000;
+      if (sinceLast < COOLDOWN_SECONDS) return Math.ceil(COOLDOWN_SECONDS - sinceLast);
+      if (list.length >= MAX_PER_HOUR) return Math.ceil((list[0] + 3600e3 - Date.now()) / 1000);
+      return 0;
+    }
+    function startCooldown() {
+      clearInterval(cooldownTimer);
+      const tick = () => {
+        const s = secondsUntilAllowed();
+        if (s <= 0) { clearInterval(cooldownTimer); btn.disabled = false; btn.textContent = BTN_LABEL; return; }
+        btn.disabled = true;
+        btn.textContent = s > 90 ? "Try again in " + Math.ceil(s / 60) + " min" : "Wait " + s + "s";
+      };
+      tick(); cooldownTimer = setInterval(tick, 1000);
+    }
+    if (secondsUntilAllowed() > 0) startCooldown();
+
+    // ---- Validation + message clearing ----
+    email.addEventListener("blur", () => {
+      if (email.value && !email.validity.valid) {
+        email.setAttribute("aria-invalid", "true");
+        show(BAD_EMAIL, "error");
+      }
+    });
+    email.addEventListener("input", () => {
+      // Any edit clears the success message; errors clear once the email becomes valid.
+      if (msg.classList.contains("success")) show("");
+      if (email.getAttribute("aria-invalid") === "true" && (email.validity.valid || !email.value)) {
+        email.removeAttribute("aria-invalid"); show("");
+      }
+    });
+
+    // ---- Submit ----
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (secondsUntilAllowed() > 0) { startCooldown(); return; }
+      if (!email.validity.valid) {
+        email.setAttribute("aria-invalid", "true");
+        show(email.value ? BAD_EMAIL : "Enter your email to join the waitlist.", "error");
+        email.focus();
+        return;
+      }
+      btn.disabled = true; btn.textContent = "Sending…";
+      try {
+        if (SIGNUP_ENDPOINT) {
+          // Form-encoded + no-cors: Apps Script doesn't answer CORS preflights,
+          // so this is a "simple" request. A network failure still throws.
+          await fetch(SIGNUP_ENDPOINT, {
+            method: "POST",
+            mode: "no-cors",
+            body: new URLSearchParams({
+              email: email.value.trim(),
+              website: document.getElementById("website").value,
+              source: location.href
+            })
+          });
+        } else {
+          console.warn("SIGNUP_ENDPOINT is empty: signup saved only in this browser's localStorage.");
+          const list = JSON.parse(localStorage.getItem("leaklockSignups") || "[]");
+          list.push({ email: email.value.trim(), at: new Date().toISOString() });
+          localStorage.setItem("leaklockSignups", JSON.stringify(list));
+        }
+        recordSubmit();
+        form.reset();
+        show("You're on the waitlist. We'll email you at launch.", "success");
+        if (waitlistCount !== null) { waitlistCount++; renderCount(); }
+        startCooldown();
+      } catch {
+        show("Something went wrong. Please try again in a moment.", "error");
+        btn.disabled = false; btn.textContent = BTN_LABEL;
+      }
+    });
+  </script>
+</body>
+</html>
