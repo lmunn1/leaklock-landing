@@ -3,5 +3,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "leaklock",
   "compatibility_date": "2026-11-01",
-  "assets": { "directory": "./public" }
+  "assets": { "directory": "./public" },
+  "workers_dev": true,     // serves at leaklock.linusmunn.workers.dev
+  "preview_urls": false
 }

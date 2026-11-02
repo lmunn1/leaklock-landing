@@ -29,6 +29,10 @@ Signups go to a Google Sheet through a Google Apps Script web app.
 - [ ] Add the Google Form link to the "Share your feedback" button (`feedbackLink`)
 - [ ] Raise `COUNT_MIN_TO_SHOW` to ~10 before sharing widely
 
+## Live site
+
+https://leaklock.linusmunn.workers.dev · QR code for slides in `qr/` (PNG + SVG).
+
 ## Deploying
 
 Hosted on Cloudflare (Workers static assets), connected to this repo: every push to `main` goes live.
