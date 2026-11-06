@@ -28,20 +28,47 @@
     </div>
 
     <!-- Demo video -->
-    <section class="card" aria-labelledby="demo-title">
-      <h2 id="demo-title">Leak Lock Demo</h2>
-      <p class="sub">A quick walkthrough of our Leak Lock MVP. See it in action filtering a live feed.</p>
-      <div class="video">
-        <!-- Replace the placeholder below with your video, e.g.:
-             <iframe src="https://www.youtube.com/embed/VIDEO_ID" title="Leak Lock demo"
-                     allow="accelerometer; autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
-             or <video src="assets/demo.mp4" controls preload="metadata"></video> -->
-        <div class="video-placeholder">
-          <div class="play" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M6 4l14 8-14 8z"/></svg>
-          </div>
-          <strong>Demo video coming soon</strong>
+    <section class="card demo-card" aria-labelledby="demo-title">
+      <!-- Videos live in public/assets/demos/ (file names are in DEMO_PLATFORMS in the script below). -->
+      <div class="demo-player" id="demoPlayer" data-shape="landscape">
+        <div class="demo-head">
+          <h2 id="demo-title">Leak Lock Demo</h2>
+          <p class="sub">A quick walkthrough of our Leak Lock MVP. See it in action filtering a live feed.</p>
         </div>
+
+        <div class="demo-tabs" role="tablist" aria-label="Choose a platform">
+          <button class="btn small" type="button" role="tab" id="demoTab-shorts" data-platform="shorts" aria-controls="demoPlayer">Short Form &amp; Reels</button>
+          <button class="btn small" type="button" role="tab" id="demoTab-reddit" data-platform="reddit" aria-controls="demoPlayer">Reddit</button>
+        </div>
+
+        <div class="demo-frame" id="demoFrame">
+          <button class="demo-pause" type="button" id="demoPause" aria-label="Pause animation" hidden>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path id="demoPauseIcon" d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>
+          </button>
+        </div>
+
+        <!-- Drag the handle down the rail. Only the handle captures touch, so the page still scrolls. -->
+        <div class="demo-rail" id="demoRail">
+          <div class="demo-track" id="demoTrack">
+            <span class="demo-fill"></span>
+            <button class="demo-stop" type="button" data-step="0" aria-label="Before" style="top:0"></button>
+            <button class="demo-stop" type="button" data-step="1" aria-label="Enabling" style="top:50%"></button>
+            <button class="demo-stop" type="button" data-step="2" aria-label="After" style="top:100%"></button>
+            <div class="demo-knob-slide">
+              <div class="demo-knob" id="demoKnob" role="slider" tabindex="0" aria-label="Demo step" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="2" aria-valuenow="0">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10l5-5 5 5M7 14l5 5 5-5"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="demo-rows" id="demoRows">
+          <div class="demo-row" data-step="0"><h3></h3><p></p></div>
+          <div class="demo-row" data-step="1"><h3></h3><p></p></div>
+          <div class="demo-row" data-step="2"><h3></h3><p></p></div>
+        </div>
+
+        <p class="sr-only" id="demoLive" aria-live="polite"></p>
       </div>
     </section>
 
@@ -90,6 +117,259 @@
   </footer>
 
   <script>
+    // ---- Demo player: platform tabs + a vertical rail that crossfades Before / Enabling / After ----
+    (() => {
+      // `ratio` is only the frame shape until a video loads; after that the video's own shape wins.
+      // Each .mp4 has a matching .jpg of its first frame, shown while it loads.
+      const DEMO_PLATFORMS = {
+        shorts: {
+          label: "Short Form & Reels",
+          ratio: 16 / 9,
+          steps: [
+            { file: "assets/demos/short-form/before-reels.mp4", title: "Before Leak Lock", desc: "A normal scroll through short-form videos, spoilers and all." },
+            { file: "assets/demos/short-form/use_extension.mp4", title: "Turning it on", desc: "Switch on Leak Lock and choose what you want filtered." },
+            { file: "assets/demos/short-form/after-reel.mp4", title: "With Leak Lock", desc: "The same scroll, with filtered content hidden before you see it." }
+          ]
+        },
+        reddit: {
+          label: "Reddit",
+          ratio: 16 / 9,
+          steps: [
+            { file: "assets/demos/reddit/before.mp4", title: "Before Leak Lock", desc: "A normal Reddit feed, spoilers and all." },
+            { file: "assets/demos/reddit/enabling.mp4", title: "Turning it on", desc: "Switch on Leak Lock and choose what you want filtered." },
+            { file: "assets/demos/reddit/after.mp4", title: "With Leak Lock", desc: "The same feed, with filtered content hidden before you see it." }
+          ]
+        }
+      };
+      const STEP_NAMES = ["Before", "Enabling", "After"];
+      const LAST = STEP_NAMES.length - 1;
+      const ICON_PAUSE = "M7 5h4v14H7zM13 5h4v14h-4z";
+      const ICON_PLAY = "M7 4l13 8-13 8z";
+
+      const $ = id => document.getElementById(id);
+      const player = $("demoPlayer"), frame = $("demoFrame"), rail = $("demoRail"), track = $("demoTrack");
+      const knob = $("demoKnob"), pauseBtn = $("demoPause"), live = $("demoLive");
+      const tabs = [...document.querySelectorAll('[role="tab"][data-platform]')];
+      const stops = [...rail.querySelectorAll(".demo-stop")];
+      const rows = [...$("demoRows").querySelectorAll(".demo-row")];
+      const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+
+      let platform = "shorts", step = 0, pos = 0, tween = 0, dragId = null;
+      // Start paused for people who asked for less motion.
+      let paused = reducedMotion.matches;
+
+      const steps = () => DEMO_PLATFORMS[platform].steps;
+
+      // One stacked layer per step, so dragging can crossfade between two of them.
+      const layers = STEP_NAMES.map((name, i) => {
+        const el = document.createElement("div");
+        el.className = "demo-layer";
+        const video = document.createElement("video");
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.setAttribute("muted", "");       // iOS only autoplays when these are real attributes
+        video.setAttribute("playsinline", "");
+        video.disablePictureInPicture = true;
+        video.preload = "auto";
+        const note = document.createElement("div");
+        note.className = "demo-note";
+        note.textContent = name + " video coming soon";
+        el.append(video, note);
+        frame.insertBefore(el, pauseBtn);
+        const layer = { el, video, shown: false };
+        video.addEventListener("loadeddata", () => {
+          el.dataset.state = "ready";
+          steps()[i].ratio = video.videoWidth / video.videoHeight;
+          if (i === step) showStepChrome();
+          syncPlayback(layer);
+        });
+        video.addEventListener("error", () => {
+          if (!video.getAttribute("src")) return;   // fired by clearing the source on a tab switch
+          el.dataset.state = "missing";
+          if (i === step) showStepChrome();
+        });
+        return layer;
+      });
+
+      // Nothing downloads until the section is close, then only the video on screen.
+      // Selecting or dragging to another step fetches that one.
+      let nearScreen = false;
+      new IntersectionObserver((entries, observer) => {
+        if (!entries.some(e => e.isIntersecting)) return;
+        nearScreen = true;
+        observer.disconnect();
+        load(step);
+      }, { rootMargin: "300px" }).observe(player);
+
+      function load(i) {
+        const { video, el } = layers[i], s = steps()[i];
+        if (!nearScreen || video.getAttribute("src") === s.file) return;
+        el.dataset.state = "loading";
+        video.setAttribute("aria-label", DEMO_PLATFORMS[platform].label + ", " + s.title + ": " + s.desc);
+        video.poster = s.file.replace(/\.mp4$/, ".jpg");
+        video.src = s.file;
+      }
+
+      // Only visible layers play. If the browser refuses autoplay (e.g. iOS Low Power Mode),
+      // fall back to the paused state so the play button is there to start it.
+      function syncPlayback({ video, shown, el }) {
+        if (el.dataset.state !== "ready") return;
+        if (!shown || paused) { video.pause(); return; }
+        const playing = video.play();
+        if (playing) playing.catch(err => {
+          if (err.name === "NotAllowedError") { paused = true; applyPaused(); }
+        });
+      }
+
+      function applyPaused() {
+        pauseBtn.setAttribute("aria-label", paused ? "Play video" : "Pause video");
+        $("demoPauseIcon").setAttribute("d", paused ? ICON_PLAY : ICON_PAUSE);
+        layers.forEach(syncPlayback);
+      }
+
+      function setRatio(ratio) {
+        player.style.setProperty("--ratio", ratio);
+        player.dataset.shape = ratio < 1 ? "portrait" : "landscape";
+      }
+
+      function showStepChrome() {
+        const p = DEMO_PLATFORMS[platform];
+        setRatio(p.steps[step].ratio || p.ratio);
+        pauseBtn.hidden = layers[step].el.dataset.state !== "ready";
+      }
+
+      function setStep(i) {
+        step = i;
+        rows.forEach((r, n) => r.classList.toggle("is-active", n === i));
+        stops.forEach((b, n) => {
+          if (n === i) b.setAttribute("aria-current", "step");
+          else b.removeAttribute("aria-current");
+        });
+        knob.setAttribute("aria-valuenow", i);
+        knob.setAttribute("aria-valuetext", STEP_NAMES[i] + ": " + steps()[i].title);
+        live.textContent = steps()[i].title + ". " + steps()[i].desc;
+        load(i);
+        showStepChrome();
+      }
+
+      // Draw the current position. The lower layer stays solid so the crossfade never dips to the background.
+      function paint() {
+        const below = Math.min(Math.floor(pos), LAST), above = Math.min(below + 1, LAST), mix = pos - below;
+        layers.forEach((layer, i) => {
+          const { el, video } = layer;
+          const on = i === below || (i === above && mix > 0);
+          if (on && !layer.shown && el.dataset.state === "ready") video.currentTime = 0;   // each step opens at its start
+          if (on !== layer.shown) { layer.shown = on; syncPlayback(layer); }
+          el.style.visibility = on ? "visible" : "hidden";
+          el.style.opacity = i === above && i !== below ? mix : 1;
+          el.style.zIndex = i === above ? 1 : 0;
+        });
+        rail.style.setProperty("--pos", pos / LAST);
+        stops.forEach((b, i) => b.classList.toggle("is-reached", pos >= i - .001));
+        const nearest = Math.round(pos);
+        if (nearest !== step) setStep(nearest);
+      }
+
+      function stopTween() { cancelAnimationFrame(tween); tween = 0; }
+
+      function goTo(target) {
+        stopTween();
+        load(target);
+        if (reducedMotion.matches) { pos = target; paint(); return; }
+        const from = pos, start = performance.now(), ms = 240;
+        const tick = now => {
+          const t = Math.min((now - start) / ms, 1);
+          pos = from + (target - from) * (1 - Math.pow(1 - t, 3));
+          paint();
+          tween = t < 1 ? requestAnimationFrame(tick) : 0;
+        };
+        tween = requestAnimationFrame(tick);
+      }
+
+      function dragTo(y) {
+        const r = track.getBoundingClientRect();
+        pos = Math.max(0, Math.min(1, (y - r.top) / r.height)) * LAST;
+        paint();
+      }
+      function startDrag(e) {
+        stopTween();
+        dragId = e.pointerId;
+        rail.setPointerCapture(dragId);
+        rail.classList.add("is-dragging");
+        STEP_NAMES.forEach((_, i) => load(i));
+        dragTo(e.clientY);
+      }
+      function endDrag() {
+        if (dragId === null) return;
+        dragId = null;
+        rail.classList.remove("is-dragging");
+        goTo(Math.round(pos));
+      }
+
+      knob.addEventListener("pointerdown", startDrag);
+      // With a mouse the whole rail is draggable. On touch only the handle is, so swipes still scroll the page.
+      rail.addEventListener("pointerdown", e => {
+        if (e.pointerType === "mouse" && dragId === null && !e.target.closest(".demo-knob, .demo-stop")) startDrag(e);
+      });
+      rail.addEventListener("pointermove", e => { if (e.pointerId === dragId) dragTo(e.clientY); });
+      rail.addEventListener("pointerup", endDrag);
+      rail.addEventListener("pointercancel", endDrag);
+
+      knob.addEventListener("keydown", e => {
+        const to = { ArrowDown: step + 1, ArrowRight: step + 1, ArrowUp: step - 1, ArrowLeft: step - 1, Home: 0, End: LAST }[e.key];
+        if (to === undefined) return;
+        e.preventDefault();
+        goTo(Math.max(0, Math.min(LAST, to)));
+      });
+      stops.forEach(b => b.addEventListener("click", () => goTo(+b.dataset.step)));
+      rows.forEach(r => r.addEventListener("click", () => goTo(+r.dataset.step)));
+      pauseBtn.addEventListener("click", () => { paused = !paused; applyPaused(); });
+
+      function setPlatform(name) {
+        platform = name;
+        tabs.forEach(t => {
+          const on = t.dataset.platform === platform;
+          t.setAttribute("aria-selected", on);
+          t.tabIndex = on ? 0 : -1;
+          t.classList.toggle("primary", on);
+        });
+        player.setAttribute("aria-labelledby", "demoTab-" + platform);
+        steps().forEach((s, i) => {
+          rows[i].querySelector("h3").textContent = s.title;
+          rows[i].querySelector("p").textContent = s.desc;
+        });
+        layers.forEach(layer => {
+          const { video, el } = layer;
+          video.pause();
+          video.removeAttribute("src");
+          video.removeAttribute("poster");
+          video.load();
+          el.dataset.state = "idle";
+          layer.shown = false;
+        });
+        stopTween();
+        pos = step;       // the same step stays selected across platforms
+        setStep(step);
+        paint();
+      }
+
+      tabs.forEach((t, i) => {
+        t.addEventListener("click", () => setPlatform(t.dataset.platform));
+        t.addEventListener("keydown", e => {
+          const to = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+          if (to === undefined) return;
+          e.preventDefault();
+          const target = tabs[(to + tabs.length) % tabs.length];
+          setPlatform(target.dataset.platform);
+          target.focus();
+        });
+      });
+
+      setPlatform(platform);
+      applyPaused();
+    })();
+
     // Google Apps Script Web app URL (see google-apps-script.js for setup).
     // While empty, signups are only kept in this browser's localStorage.
     const SIGNUP_ENDPOINT = "https://script.google.com/macros/s/AKfycbzF8ppjtUAXh2WbtF9kN5bP6-tm5ioZexjQLRxfs61lfp5IVyJ_OlA-2P-6rJNphuw7/exec";
